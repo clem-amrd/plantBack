@@ -20,6 +20,7 @@ return new class extends Migration
             $table->string('password')->nullable();
             $table->longText('avatar')->nullable();
             $table->integer('vegetable_garden_size')->nullable();
+            $table->integer('experience')->nullable();
             $table->rememberToken();
             $table->timestamps();
         });

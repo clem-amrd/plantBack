@@ -26,4 +26,8 @@ class User extends Authenticatable
     'habitat_id' ,
     'localisation_id' 
     ];
+
+    public function favoris(){
+        return $this->belongsToMany(Plant::class, 'plants_users');
+    }
 }

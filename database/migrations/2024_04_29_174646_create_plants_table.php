@@ -24,13 +24,14 @@ return new class extends Migration
             $table->integer('temperature_perfect')->nullable();
             $table->json('seed_months')->nullable();
             $table->json('fruit_months')->nullable();
-            $table->string('row_spacing')->nullable();
+            $table->integer('row_spacing')->nullable();
             $table->integer('toxicity')->nullable();
             $table->string('description')->nullable();
             $table->integer('watering')->nullable();
-            $table->boolean('humidity')->nullable();
-            $table->boolean('compatibility')->nullable();
-            $table->boolean('difficulty')->nullable();
+            $table->integer('humidity')->nullable();
+            $table->json('compatibility')->nullable();
+            $table->integer('difficulty')->nullable();
+            $table->boolean('fruit')->nullable();
             $table->timestamps();
         });
     }

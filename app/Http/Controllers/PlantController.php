@@ -3,161 +3,243 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Models\Plant;
+use App\Models\User;
+use App\Models\Localisation;
+use App\Models\MyPlant;
+use Illuminate\Support\Facades\Auth;
+use Carbon\Carbon;
 
 class PlantController extends Controller
 {
-    //ajouter un chat aux favoris
-    public function addFavoris(cat $cat)
+
+    //FONCTIONNE
+    public function index()
+    {
+        return Plant::all();
+    }
+
+    //FONCTIONNE
+    //ajouter une plante aux favoris
+    public function addFavoris(plant $plant)
     {
         $user = Auth::user();
-        $fav = $user->favoris()->wherePivot('cat_id', $cat->id)->exists();
-        $ownCat = Cat::Where('id', $cat->id)->where('user_id', $user->id)->exists();
-        $adoptedCat = Adoption::Where('cat_id', $cat->id)->where('statut_id', 2)->exists();
-        if(!$fav && !$ownCat && !$adoptedCat){
-            $user->favoris()->attach($cat->id);
-            CatFavoritedEvent::dispatch($cat);
+        $fav = $user->favoris()->wherePivot('plant_id', $plant->id)->exists();
+        if(!$fav){
+            $user->favoris()->attach($plant->id);
             return $user;
         }else{
-            return response()->json(['message' => 'ce chat est à vous ou est déjà dans vos favoris'], 200);
+            return response()->json(['message' => 'Cette plante est déjà dans vos favoris'], 200);
         }
     }
 
-       //tout les favoris de l'user
-       public function displayFavoris()
-       {
-           // dd("start");
-           $user = Auth::user();
-           $fav = $user->favoris()->exists();
-           if (!$fav) {
-               return response()->json(['message' => 'Vous n avez pas de chat à vos favoris'], 200);
-           }else{
-           $data = $user->favoris()->get();
-           $response = $data->map(function ($cat) {
-               $catData = $cat->toArray();
-               $catData['localisation'] = $cat->localisation ? $cat->localisation->departement : null;
-               $photoName = $cat->photos->first() ? $cat->photos->first()->name : null;
-               $catData['photo'] = Storage::url('Image/' . $photoName);
-               return $catData;
-           });
-           return response()->json($response);
-           }
-       }
+    // FONCTIONNE
+    //ajouter une plante au potager/modifier le nombre
+    public function store(Request $request)
+    {
+        $data = $request->validate([
+            'plant_id' => 'required|integer',
+            'number' => 'required|integer'
+        ]);
+        // dd("start");
+        $userId = Auth::user()->id;
+        $plantExist = MyPlant::where('plant_id', $data['plant_id'])->where('user_id', $userId)->exists();
+            if(!$plantExist){
+                $addPlant = new MyPlant();
+                $addPlant->plant_id = $data['plant_id'];
+                $addPlant->number = $data['number'];
+                $addPlant->user_id = $userId;
+                $addPlant->save();
+                return $addPlant;
+            }else{
+                $addPlant = $plantExist = MyPlant::where('plant_id', $data['plant_id'])->where('user_id', $userId)->first();
+                $addPlant->number = $data['number'];
+                $addPlant->save();
+                return $addPlant;
+            } 
+    }
 
-       public function deleteFavoris(cat $cat)
-       {
-           $user = Auth::user();
-           $fav = $user->favoris()->where('cats_users.cat_id', $cat->id)->first();
-           if (!$fav) {
-               return response()->json(['message' => 'ce chat n\'est pas dans vos favoris'], 200);
-           }else{
-           $user->favoris()->detach($cat->id);
-           CatFavoritedEvent::dispatch($cat);
-           return response()->json(['message' => 'suppr'], 200);
-           }
-       }
+    //FONCTIONNE
+    //suppr une plante d'un potager
+    public function deletePlant(plant $plant)
+    {
+        $user = Auth::user();
+        $plantToDelete = MyPlant::where('plant_id', $plant->id)->where('user_id', $user->id)->first();
+        if (!$plantToDelete) {
+            return response()->json(['message' => 'cette plante n\'est pas dans votre potager'], 200);
+        }else{
+        $plantToDelete->delete();
+        return response()->json(['message' => 'suppr'], 200);
+        }
+    }
 
-       public function allDepartement()
-       {
-           return Localisation::all();
-       }
+    //FONCTIONNE
+    //tout les favoris de l'user
+    public function displayFavoris()
+    {
+        // dd("start");
+        $user = Auth::user();
+        $fav = $user->favoris()->exists();
+        if (!$fav) {
+            return response()->json(['message' => 'Vous n avez pas de plante à vos favoris'], 200);
+        }else{
+        $data = $user->favoris()->get();
+        $response = $data->map(function ($plant) {
+            $plantData = $plant->toArray();
+            return $plantData;
+        });
+        return response()->json($response);
+        }
+    }
 
-       public function departementbyId($id)
-       {
-           $res = Localisation::find($id);
-           if (!$res) {
-               return response()->json(['message' => 'aucun departement ne correspond'], 200);
-           }
-           return $res;
-       }
-   
-       public function search(Request $request)
-       {
-           $key = trim($request->get('search'));
-           $catAvailable = $this->catAvailable();
-   
-           $filteredCats = $catAvailable->filter(function ($cat) use ($key) {
-               return stripos($cat->name, $key) !== false;
-           })->values(); 
-   
-           return response()->json(['chats' => $filteredCats]);
-       }
-   
-       public function searchWithFilters($cats, $key)
-       {
-           $filteredCats = $cats->filter(function ($cat) use ($key) {
-               return stripos($cat->name, $key) !== false;
-           })->values(); 
-           return $filteredCats;
-       }
-   
-       public function filters(Request $request)
-       {
-           $data = $request->validate([
-               'ageMin' => 'sometimes|integer|between:0,25',
-               'ageMax' => 'sometimes|integer|between:0,25',
-               'sex' => 'sometimes|string|max:255',
-               'localisation_id' => 'sometimes|integer',
-               'urgence' => 'sometimes|boolean',
-               'search' => 'nullable|string|max:255'
-           ]);
-   
-           $userId = Auth::user()->id;   
-           $catNotAvailable = Adoption::where('statut_id', 2)->pluck('cat_id')->toArray();
-           $ownCat = Cat::where('user_id', $userId)->pluck('id')->toArray();
-   
-           $arrayId = array_merge($catNotAvailable, $ownCat);
-   
-           $query = Cat::whereNotIn('id', $arrayId);
-           
-   
-               if (isset($data['ageMin'])) {
-                   $query->where('age', '>=', $data['ageMin']);
-               }
-               if (isset($data['ageMax'])) {
-                   $query->where('age', '<=', $data['ageMax']);
-               }
-               if (isset($data['sex'])) {
-                   $query->where('sex', $data['sex']);
-               }
-               if (isset($data['localisation_id'])) {
-                   $query->where('localisation_id', $data['localisation_id']);
-               }
-               if (isset($data['urgence'])) {
-                   $query->where('urgent', $data['urgence']);
-               }
-               $catAvailable = $query->get();
-   
-               if (isset($data['search'])) {
-               $searchTerm = trim($request->get('search'));
-               $catAvailable = $this->searchWithFilters($catAvailable, $searchTerm);
-               
-           }
-   
-           if ($catAvailable->isEmpty()) {
-               return response()->json(['message' => 'Il n\'y a aucun chat disponible'], 200);
-           }
-           $response = $catAvailable->map(function ($cat) use ($userId){
-               $catData = $cat->toArray();
-               $catData['localisation'] = $cat->localisation ? $cat->localisation->departement : null;
-               $photoName = $cat->photos->first() ? $cat->photos->first()->name : null;
-               $catData['photo'] = Storage::url('Image/' . $photoName);
-               $catData['fav'] = $cat->favoris()->where('user_id', $userId)->exists();
-               return $catData;
-           });
-           return $response;
-       }
-   
-       // voir un chat specifique
-       public function indexbyid(cat $cat)
-       {
-           $userId = Auth::user()->id;
-           if (!$cat) {
-               return response()->json(['message' => 'aucun chat ne correspond'], 200);
-           }
-           $cat->localisation = $cat->localisation ? $cat->localisation->departement : null;
-           $cat->favoris = $cat->favoris()->where('user_id', $userId)->exists();
-       
-           return $cat;
-       }
-   
+    //FONCTIONNE
+    public function deleteFavoris(plant $plant)
+    {
+        $user = Auth::user();
+        $fav = $user->favoris()->where('plants_users.plant_id', $plant->id)->first();
+        if (!$fav) {
+            return response()->json(['message' => 'cette plante n\'est pas dans vos favoris'], 200);
+        }else{
+        $user->favoris()->detach($plant->id);
+        return response()->json(['message' => 'suppr'], 200);
+        }
+    }
+
+    //FONCTIONNE PAS
+    public function recommendation()
+    {
+        $user = Auth::user();
+        $conditionOfUser = User::where('id', $user->id)->first();
+        $currentMonth = Carbon::now()->format('m');
+        $experience = $conditionOfUser->experience;
+        $habitat = $conditionOfUser->habitat_id;
+        $localisation = $conditionOfUser->localisation_id;
+        $average_temperature = Localisation::where('id', $localisation)->value('average_temperature');
+        // dd($average_temperature, $experience, $habitat, $currentMonth);
+        $recommendation = Plant::where('temperature_min', '<', $average_temperature)
+                                ->where('temperature_max', '>', $average_temperature)
+                                ->where('difficulty', $experience)
+                                // ->whereJsonContains('compatibility->habitat', $habitat)
+                                ->whereJsonContains('seed_months->months', $currentMonth)
+                                ->get()->toArray();
+        
+        if (empty($recommendation)) {
+            return response()->json(['message' => 'aucune plante ne correspond à votre situation pour le moment'], 200);
+        }else{
+            return $recommendation;
+        }
+    }
+
+    //FONCTIONNE PAS
+    // public function seedCalcul()
+    // {
+    //     $user = Auth::user();
+    //     $gardenPlants = MyPlant::where('user_id', $user->id)->value('id')->toArray();
+    //     $gardenSize = User::where('id', $user->id)->value('vegetable_garden_size');
+    //     for($i = 0; $i<$gardenPlants.length; $i++){
+    //         $space = Plant::where('id', $gardenPlants[$i])->value('row_spacing');
+            
+    //     }
+    //     if (!$fav) {
+    //         return response()->json(['message' => 'cette plante n\'est pas dans vos favoris'], 200);
+    //     }else{
+    //     $user->favoris()->detach($plant->id);
+    //     return response()->json(['message' => 'suppr'], 200);
+    //     }
+    // }
+
+    //FONCTIONNE
+    public function allRegion()
+    {
+        return Localisation::all();
+    }
+
+    //FONCTIONNE
+    public function regionbyId($id)
+    {
+        $res = Localisation::find($id);
+        if (!$res) {
+            return response()->json(['message' => 'aucune région ne correspond'], 200);
+        }
+        return $res;
+    }
+
+    //FONCTIONNE
+    public function search(Request $request)
+    {
+        $key = trim($request->get('search'));
+        $plantAvailable = Plant::get();
+        $filteredPlants = $plantAvailable->filter(function ($plant) use ($key) {
+            return stripos($plant->name, $key) !== false;
+        })->values(); 
+
+        return response()->json(['plantes' => $filteredPlants]);
+    }
+
+    public function searchWithFilters($plants, $key)
+    {
+        $filteredPlants = $plants->filter(function ($plant) use ($key) {
+            return stripos($plant->name, $key) !== false;
+        })->values(); 
+        return $filteredPlants;
+    }
+
+    //FONCTIONNE
+    public function filters(Request $request)
+    {
+        $data = $request->validate([
+            'seedMonth' => 'sometimes|string',
+            'fruitMonth' => 'sometimes|string',
+            'difficulty' => 'sometimes|integer|between:0,2',
+            'fruit' => 'sometimes|integer|between:0,1',
+            'compatibilty' => 'sometimes|integer|between:0,3',
+            'search' => 'nullable|string|max:255'
+        ]);
+
+        $userId = Auth::user()->id;
+        $query = Plant::query();
+        
+            if (isset($data['seedMonth'])) {
+                $query->whereJsonContains('seed_months->months', $data['seedMonth']);
+            }
+            if (isset($data['fruitMonth'])) {
+                $query->whereJsonContains('fruit_months->months', $data['fruitMonth']);
+            }
+            if (isset($data['difficulty'])) {
+                $query->where('difficulty', $data['difficulty']);
+            }
+            if (isset($data['fruit'])) {
+                $query->where('fruit', $data['fruit']);
+            }
+            if (isset($data['compatibilty'])) {
+                $query->where('compatibilty', $data['compatibilty']);
+            }
+            $plantAvailable = $query->get();
+
+            if (isset($data['search'])) {
+            $searchTerm = trim($request->get('search'));
+            $plantAvailable = $this->searchWithFilters($plantAvailable, $searchTerm);
+        }
+
+        if ($plantAvailable->isEmpty()) {
+            return response()->json(['message' => 'aucun fruits ou légume ne correspond à votre recherche'], 200);
+        }
+        $response = $plantAvailable->map(function ($plant) use ($userId){
+            $plantData = $plant->toArray();
+            $plantData['fav'] = $plant->favoris()->where('user_id', $userId)->exists();
+            return $plantData;
+        });
+        return $response;
+    }
+
+    // FONCTIIONNE
+    public function indexbyid(plant $plant)
+    {
+        $userId = Auth::user()->id;
+        if (!$plant) {
+            return response()->json(['message' => 'aucune plante ne correspond'], 200);
+        }
+        $plant->favoris = $plant->favoris()->where('user_id', $userId)->exists();
+        return $plant;
+    }
 }
