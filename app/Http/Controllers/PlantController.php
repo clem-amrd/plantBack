@@ -34,28 +34,23 @@ class PlantController extends Controller
     }
 
     // FONCTIONNE
-    //ajouter une plante au potager/modifier le nombre
-    public function store(Request $request)
+    //ajouter une plante au potager
+    public function store(Plant $plant)
     {
-        $data = $request->validate([
-            'plant_id' => 'required|integer',
-            'number' => 'required|integer'
-        ]);
         // dd("start");
         $userId = Auth::user()->id;
-        $plantExist = MyPlant::where('plant_id', $data['plant_id'])->where('user_id', $userId)->exists();
+        $today = date('Y-m-d');
+        $plantExist = MyPlant::where('plant_id', $plant->id)->where('user_id', $userId)->exists();
             if(!$plantExist){
                 $addPlant = new MyPlant();
-                $addPlant->plant_id = $data['plant_id'];
-                $addPlant->number = $data['number'];
+                $addPlant->plant_id = $plant->id;
                 $addPlant->user_id = $userId;
+                $addPlant->user_id = $userId;
+                $addPlant->wateringDate = $today;
                 $addPlant->save();
                 return $addPlant;
             }else{
-                $addPlant = $plantExist = MyPlant::where('plant_id', $data['plant_id'])->where('user_id', $userId)->first();
-                $addPlant->number = $data['number'];
-                $addPlant->save();
-                return $addPlant;
+                return response()->json(['message' => 'cette plante est déjà dans votre potager'], 200);
             } 
     }
 
@@ -115,11 +110,13 @@ class PlantController extends Controller
         $habitat = $conditionOfUser->habitat_id;
         $localisation = $conditionOfUser->localisation_id;
         $average_temperature = Localisation::where('id', $localisation)->value('average_temperature');
+        $habitat = strval($habitat);
+        // dd($habitat, $currentMonth);
         // dd($average_temperature, $experience, $habitat, $currentMonth);
         $recommendation = Plant::where('temperature_min', '<', $average_temperature)
                                 ->where('temperature_max', '>', $average_temperature)
                                 ->where('difficulty', $experience)
-                                // ->whereJsonContains('compatibility->habitat', $habitat)
+                                ->whereJsonContains('compatibility->habitat', $habitat)
                                 ->whereJsonContains('seed_months->months', $currentMonth)
                                 ->get()->toArray();
         
@@ -241,5 +238,40 @@ class PlantController extends Controller
         }
         $plant->favoris = $plant->favoris()->where('user_id', $userId)->exists();
         return $plant;
+    }
+
+    public function watering(plant $plant)
+    {
+        $userId = Auth::user()->id;
+        $watering = MyPlant::where('plant_id', $plant->id)->where('user_id', $userId)->first();
+        if (empty($watering)) {
+            return response()->json(['message' => 'aucune plante ne correspond'], 200);
+        }else{
+            return $watering;
+        }
+    }
+
+    public function wateringPlant(plant $plant)
+    {
+        $userId = Auth::user()->id;
+        $watering = Plant::where('id', $plant->id)->first();
+        if (empty($watering)) {
+            return response()->json(['message' => 'aucune plante ne correspond'], 200);
+        }else{
+            return $watering;
+        }
+    }
+
+    public function allMyPlant()
+    {
+        $userId = Auth::user()->id;
+        $plantIds = MyPlant::where('user_id', $userId)->pluck('plant_id');
+        $allMyPlants = Plant::whereIn('id', $plantIds)->get();
+
+        if ($allMyPlants->isEmpty()) {
+            return response()->json(['message' => 'Aucune plante dans votre potager'], 200);
+        } else {
+            return response()->json($allMyPlants, 200);
+        }
     }
 }

@@ -16,7 +16,6 @@ return new class extends Migration
             $table->timestamps();
             $table->foreignIdFor(\App\Models\User::class)->constrained()->cascadeOnDelete();
             $table->foreignIdFor(\App\Models\Plant::class)->constrained()->cascadeOnDelete();
-            $table->integer('number')->nullable();
             $table->datetime('wateringDate')->nullable();
         });
     }

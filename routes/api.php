@@ -43,23 +43,27 @@ Route::group(['middleware' => 'auth:sanctum'], function(){
         Route::get('/showInfo', [UserController::class, 'showInfo'])->name('showInfo');
         Route::delete('/delete', [UserController::class, 'destroy']);
         Route::get('/{id}', [UserController::class, 'showinfoById']);
+        Route::post('/conditionUser', [UserController::class, 'conditionUser']);
         // Route::get('/', [UserController::class, 'index'])->name('users');
     });
 
     Route::prefix('plant')->group(function () {
         Route::post('/search', [PlantController::class, 'search']);
         Route::post('/filters', [PlantController::class, 'filters']);  
+        Route::get('/allMyPlant', [PlantController::class, 'allMyPlant']);
         Route::get('/recommendation', [PlantController::class, 'recommendation']);  
         Route::get('/', [PlantController::class, 'index']);
         Route::get('/allRegion', [PlantController::class, 'allRegion']);
         Route::get('/region/{id}', [PlantController::class, 'regionbyId']);
-        Route::post('/addPlant', [PlantController::class, 'store']);
+        Route::get('/addPlant/{plant}', [PlantController::class, 'store']);
         Route::get('/deletePlant/{plant}', [PlantController::class, 'deletePlant']);
         Route::get('/addFavoris/{plant}', [PlantController::class, 'addFavoris']);
         Route::get('/allfavoris', [PlantController::class, 'displayFavoris']);
         Route::get('/favoris/{id}', [PlantController::class, 'favorisById']);
         Route::get('/deleteFavoris/{plant}', [PlantController::class, 'deleteFavoris']);
         Route::get('/{plant}', [PlantController::class, 'indexbyid']);
+        Route::get('/watering/{plant}', [PlantController::class, 'watering']);
+        Route::get('/wateringPlant/{plant}', [PlantController::class, 'wateringPlant']);
     });
 
     // Route::prefix('adoption')->group(function () {

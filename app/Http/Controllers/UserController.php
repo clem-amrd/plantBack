@@ -121,4 +121,34 @@ class UserController extends Controller
         return response()->json(['message' => 'suppr']);
     }
 
+    public function conditionUser(Request $request)
+    {
+        $user = Auth::user();
+        $data = $request->validate([
+            'experience' => 'sometimes|integer',
+            'habitat' => 'sometimes|integer',
+            'region' => 'sometimes|integer',
+            'dimension' => 'sometimes|integer'
+        ]);
+    
+        // Affecter les valeurs validées à l'utilisateur
+        if (isset($data['experience'])) {
+            $user->experience = $data['experience'];
+        }
+        if (isset($data['habitat'])) {
+            $user->habitat_id = $data['habitat'];
+        }
+        if (isset($data['region'])) {
+            $user->localisation_id = $data['region'];
+        }
+        if (isset($data['dimension'])) {
+            $user->vegetable_garden_size = $data['dimension'];
+        }
+    
+        // Enregistrer les modifications dans la base de données
+        $user->save();
+    
+        return $user;
+    }
+
 }
