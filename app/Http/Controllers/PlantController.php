@@ -68,6 +68,8 @@ class PlantController extends Controller
         }
     }
 
+    
+
     //FONCTIONNE
     //tout les favoris de l'user
     public function displayFavoris()
@@ -114,12 +116,14 @@ class PlantController extends Controller
         // dd($habitat, $currentMonth);
         // dd($average_temperature, $experience, $habitat, $currentMonth);
         $recommendation = Plant::where('temperature_min', '<', $average_temperature)
-                                ->where('temperature_max', '>', $average_temperature)
-                                ->where('difficulty', $experience)
-                                ->whereJsonContains('compatibility->habitat', $habitat)
-                                ->whereJsonContains('seed_months->months', $currentMonth)
-                                ->get()->toArray();
-        
+            ->where('temperature_max', '>', $average_temperature)
+            ->where('difficulty', $experience)
+            ->where(function($query) use ($habitat) {
+                $query->whereJsonContains('compatibility->habitat', $habitat)
+                    ->orWhereJsonContains('compatibility->habitat', "3");
+            })
+            ->whereJsonContains('seed_months->months', $currentMonth)
+            ->get()->toArray();
         if (empty($recommendation)) {
             return response()->json(['message' => 'aucune plante ne correspond à votre situation pour le moment'], 200);
         }else{
@@ -187,9 +191,9 @@ class PlantController extends Controller
         $data = $request->validate([
             'seedMonth' => 'sometimes|string',
             'fruitMonth' => 'sometimes|string',
-            'difficulty' => 'sometimes|integer|between:0,2',
-            'fruit' => 'sometimes|integer|between:0,1',
-            'compatibilty' => 'sometimes|integer|between:0,3',
+            'difficulty' => 'sometimes|string',
+            'fruit' => 'sometimes|string',
+            'compatibility' => 'sometimes|string',
             'search' => 'nullable|string|max:255'
         ]);
 
@@ -203,13 +207,15 @@ class PlantController extends Controller
                 $query->whereJsonContains('fruit_months->months', $data['fruitMonth']);
             }
             if (isset($data['difficulty'])) {
-                $query->where('difficulty', $data['difficulty']);
+                $difficulty = intval($data['difficulty']);
+                $query->where('difficulty', $difficulty);
             }
             if (isset($data['fruit'])) {
-                $query->where('fruit', $data['fruit']);
+                $fruit = intval($data['fruit']);
+                $query->where('fruit', $fruit);
             }
-            if (isset($data['compatibilty'])) {
-                $query->where('compatibilty', $data['compatibilty']);
+            if (isset($data['compatibility'])) {
+                $query->whereJsonContains('compatibility->habitat', $data['compatibility']);
             }
             $plantAvailable = $query->get();
 
@@ -223,7 +229,7 @@ class PlantController extends Controller
         }
         $response = $plantAvailable->map(function ($plant) use ($userId){
             $plantData = $plant->toArray();
-            $plantData['fav'] = $plant->favoris()->where('user_id', $userId)->exists();
+            $plantData['own'] = MyPlant::where("user_id", $userId)->where("plant_id", $plant->id)->exists();
             return $plantData;
         });
         return $response;

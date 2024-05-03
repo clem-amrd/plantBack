@@ -48,8 +48,8 @@ Route::group(['middleware' => 'auth:sanctum'], function(){
     });
 
     Route::prefix('plant')->group(function () {
-        Route::post('/search', [PlantController::class, 'search']);
         Route::post('/filters', [PlantController::class, 'filters']);  
+        Route::post('/search', [PlantController::class, 'search']);
         Route::get('/allMyPlant', [PlantController::class, 'allMyPlant']);
         Route::get('/recommendation', [PlantController::class, 'recommendation']);  
         Route::get('/', [PlantController::class, 'index']);
